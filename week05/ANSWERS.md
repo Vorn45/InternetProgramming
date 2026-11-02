@@ -1,0 +1,16 @@
+# Week 5 Questions and Answers
+
+### 1. You refresh the browser on `/events/2` and the page loads. Which program answered that request in development, and what must the production server do so it still works after deployment?
+In development, the Vite development server answered the HTTP request by intercepting the deep link and serving `index.html`. In production, a static web server (such as Nginx or Apache) would return a 404 Not Found error because no physical `/events/2` file exists on disk. To fix this, the production server must be configured with an SPA fallback rule (URL rewrite) that redirects all non-asset requests to `index.html`. Once `index.html` loads, client-side Vue Router inspects the pathname and renders `EventDetailPage`.
+
+### 2. The guard stops students from opening `/events/new`. Can a student still create an event? How, and what must stop them?
+Yes, a student can still create an event because client-side router guards only prevent navigation within the browser UI. Anyone can bypass the guard by making a direct `POST /events` HTTP request using tools like `curl`, Postman, or the browser console, or by tampering with the client-side session store. To prevent unauthorized event creation, the backend API server must enforce authentication and role-based access control on the `/events` endpoint, rejecting unauthorized requests with a 401 or 403 HTTP status code.
+
+### 3. EventDetailPage loads its event in a watch on the id with `immediate: true`, not in `onMounted`. What bug would `onMounted` alone cause?
+Because Vue Router reuses the existing component instance when navigating between routes that share the same component (such as navigating from `/events/1` to `/events/2`), the component is not unmounted and remounted. If event loading were placed solely in `onMounted`, it would only run once on initial creation and never re-run when the `:id` parameter changes. Consequently, the browser URL would update, but the page would continue displaying stale data from the previous event.
+
+### 4. Why does EventsPage use `storeToRefs(store)` instead of `const { events } = store`?
+Destructuring properties directly from a Pinia store (`const { events } = store`) strips away reactivity because JavaScript destructuring extracts values from the reactive proxy into plain local variables. If destructured this way, `events` would hold a static reference to the initial empty array, and the component would not re-render when `store.fetchAll()` updates the store. Using `storeToRefs(store)` wraps the store's state properties and getters in Vue refs, ensuring that full reactivity is preserved during destructuring.
+
+### 5. Booking makes two requests: POST the booking, then PATCH the seat count. What happens to the data if the second one fails? How could the server avoid this?
+If the second request fails, the database is left in an inconsistent state where the booking has been recorded, but the event's `booked` count is never updated. This desynchronization can result in overbooking because subsequent visitors will still see and attempt to claim seats that have already been allocated. The server could prevent this by providing a single, unified booking endpoint that handles both actions atomically within a database transaction, automatically rolling back the booking if the seat count update cannot be completed.

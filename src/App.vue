@@ -1,60 +1,38 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
-import EventList from "./components/EventList.vue";
-import { initialEvents } from "./data/events";
-import type { CampusEvent } from "./types";
+import { storeToRefs } from "pinia";
+import { useSessionStore, type Role } from "./stores/session";
+import { useBookingsStore } from "./stores/bookings";
 
-const saved = localStorage.getItem("myBookings");
-const initialBookings: number[] = saved ? JSON.parse(saved) : [];
-
-// TODO 1: a ref `myBookings` holding the ids of the events I booked (one entry per seat)
-const myBookings = ref<number[]>(initialBookings);
-
-// A reactive copy of the hard-coded events with my bookings added to booked
-const events = ref<CampusEvent[]>(
-  initialEvents.map((e) => {
-    const bookedByMe = myBookings.value.filter((id) => id === e.id).length;
-    return { ...e, booked: e.booked + bookedByMe };
-  })
-);
-
-// TODO 2: a computed `bookingCount`
-const bookingCount = computed(() => myBookings.value.length);
-
-// TODO 3: onBook(id): find the event; if it still has a seat,
-//         increase its `booked` and add the id to myBookings
-function onBook(id: number) {
-  const event = events.value.find((e) => e.id === id);
-  if (event && event.booked < event.capacity) {
-    event.booked++;
-    myBookings.value.push(id);
-  }
-}
-
-// TODO 4 (bonus): keep my bookings after a page reload
-//   - watch myBookings and save it to localStorage (JSON.stringify)
-//   - read it back when the app starts, and add those seats to `booked`
-watch(
-  myBookings,
-  () => {
-    localStorage.setItem("myBookings", JSON.stringify(myBookings.value));
-  },
-  { deep: true }
-);
+const session = useSessionStore();
+const { role, isOrganiser } = storeToRefs(session);
+const { totalSeats } = storeToRefs(useBookingsStore());
 </script>
 
 <template>
+  <header class="top">
+    <nav>
+      <RouterLink to="/" class="brand">Campus Events</RouterLink>
+      <RouterLink to="/my-bookings">My bookings<span v-if="totalSeats"> ({{ totalSeats }})</span></RouterLink>
+      <RouterLink v-if="isOrganiser" to="/events/new">New event</RouterLink>
+    </nav>
+    <label class="role">
+      Role
+      <select :value="role" aria-label="Role" @change="session.setRole(($event.target as HTMLSelectElement).value as Role)">
+        <option value="student">Student</option>
+        <option value="organiser">Organiser</option>
+      </select>
+    </label>
+  </header>
   <main>
-    <header>
-      <h1>Campus Events</h1>
-      <!-- TODO 5: show the real count ("1 seat" / "N seats") -->
-      <p class="mine">{{bookingCount === 1 ? "You have booked 1 seat." : `You have booked ${bookingCount} seats.`}}</p>
-    </header>
-    <EventList :events="events" @book="onBook" />
+    <RouterView />
   </main>
 </template>
 
 <style scoped>
-header { margin-bottom: 16px; }
-.mine { color: #6b7280; margin: 0; }
+.top { background: #1b1b1f; color: white; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+nav { display: flex; gap: 16px; align-items: center; }
+nav a { color: #e5e7eb; text-decoration: none; }
+nav a.router-link-exact-active { color: #f7df1e; }
+.brand { font-weight: 700; font-size: 1.1rem; }
+.role { display: flex; gap: 8px; align-items: center; }
 </style>

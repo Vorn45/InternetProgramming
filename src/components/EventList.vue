@@ -1,39 +1,17 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
-import type { CampusEvent, Category } from "../types";
+import { toRef } from "vue";
+import type { CampusEvent } from "../types.ts";
+import { useEventFilters } from "../composables/useEventFilters.ts";
+// @ts-ignore Vue SFC module declarations are unavailable in this project.
 import EventCard from "./EventCard.vue";
 
-const props = defineProps<{ 
-  events: CampusEvent[]
-}>();
-// TODO 1: declare a "book" event (same as EventCard) so the list can pass it up
-const emit = defineEmits<{
-  book: [id: number];
-}>();
-// TODO 2: two refs for the filters
-//   search   -> the text typed in the search box
-const search = ref("");
-//   category -> Category | "all", starts at "all"
-const category = ref<Category | "all">("all");
-// TODO 3: a computed `visible` list:
-const visible = computed(() => {
-  let list = props.events;
-  if (category.value !== "all") {
-    list = list.filter(e => e.category === category.value);
-  }
-  if (search.value !== "") {
-    list = list.filter(e => e.title.toLowerCase().includes(search.value.toLowerCase()) || e.location.toLowerCase().includes(search.value.toLowerCase()));
-  }
-  return list;
-})
-//   - keep events of the selected category (or all)
-//   - keep events whose title OR location contains the search text, ignoring case
+const props = defineProps<{ events: CampusEvent[] }>();
+const { search, category, visible } = useEventFilters(toRef(props, "events"));
 </script>
 
 <template>
   <section>
     <div class="filters">
-      <!-- TODO 4: bind the input and the select to your refs with v-model -->
       <input v-model="search" type="search" placeholder="Search title or location" aria-label="Search" />
       <select v-model="category" aria-label="Category">
         <option value="all">All categories</option>
@@ -44,20 +22,10 @@ const visible = computed(() => {
       </select>
     </div>
 
-    <!-- TODO 5: show "<visible count> of <total> events" -->
-    <p class="count">{{ visible.length }} of {{ props.events.length }} events</p>
+    <p class="count">{{ visible.length }} of {{ events.length }} events</p>
 
-    <!-- TODO 6: render one EventCard per visible event (v-for with a :key),
-         pass the event as a prop and pass its "book" event up.
-         When nothing is visible, show the empty message instead (v-if / v-else). -->
-
-    <div v-if="visible.length > 0" class="grid">
-      <EventCard
-        v-for="e in visible"
-        :key="e.id"
-        :event="e"
-        @book="emit('book', $event)"
-      />
+    <div v-if="visible.length" class="grid">
+      <EventCard v-for="e in visible" :key="e.id" :event="e" />
     </div>
     <p v-else class="empty">No events match your search.</p>
   </section>
